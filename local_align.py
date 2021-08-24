@@ -199,6 +199,8 @@ if __name__ == "__main__":
     X = "abc|def|gh ij"
     Y = "abc|def|gh j"
 
+    print("X len:",len(X))
+    print("Y len:",len(Y))
     A = local_align(X,Y)
     print(A)
 

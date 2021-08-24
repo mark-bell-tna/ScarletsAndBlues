@@ -22,6 +22,16 @@ class MultiAlign:
         self.record_lengths = record_lengths
         self.record_alignments = record_alignments  # See __main__ method below for example of expected format
 
+        self.max_indices = [0 for i in range(len(record_lengths))]
+
+    def add_row(self, row):
+        
+        print("Add row:",row)
+        for i in range(len(row)):
+            if row[i] > self.max_indices[i]:
+                self.max_indices[i] = row[i]
+        self.multi_align.append(row)
+
     def do_alignment(self):
 
         self.multi_align = []
@@ -76,6 +86,7 @@ class MultiAlign:
                             #print("\t","indxs",primary_col,secondary_col,"align",self.multi_align[spine_idx],"map",this_map,"col idxs:",column_indices)
 
                             # keep track of column values we've skipped over
+                            #print("Indexes:",spine_idx,len(self.multi_align),secondary_col, len(column_indices))
                             if column_indices[secondary_col] < self.multi_align[spine_idx][secondary_col]:
                                 column_indices[secondary_col] = self.multi_align[spine_idx][secondary_col] + 1
 
@@ -120,18 +131,36 @@ class MultiAlign:
                     #print("\tUpdated Row:",self.multi_align[spine_idx])
                     spine_idx += 1
 
-        #for al in self.multi_align:
+        for ma in self.multi_align:
+            self.max_indices = [max(self.max_indices[i], ma[i]+1) for i in range(len(ma))]
+
+        if len(self.multi_align) < 6:
+            print("Pre-complete:",self.multi_align)
+            print("Max indices:",self.max_indices)
+            print("Record lengths:",self.record_lengths)
+        for i in range(len(self.max_indices)):
+            while self.max_indices[i] < self.record_lengths[i]:
+                self.multi_align.append([self.max_indices[i] if j == i else -1 for j in range(len(self.max_indices))])
+                self.max_indices[i] += 1
         #    print("End MA:",al)
 
 if __name__ == "__main__":
 
     strings = ["abcde", "abcde", "abde"]
+    strings = ["abd", "abcde","abc"]
     string_lengths = [len(s) for s in strings]
     # do alignments in length order, so longest matches to others first, then next longest to remainder etc.
     alignments = OrderedDict()
-    alignments[0] = [[1, {0:0,1:1,2:2,3:3,4:4}],
-                     [2, {0:0,1:1,3:2,4:3}]]
-    alignments[1] = [[2, {0:0,1:1,3:2,4:3}]]
+    alignments[0] = [[1, {0:0,1:1,2:3}],
+                     [2, {0:0,1:1}]]
+    alignments[1] = [[2, {0:0,1:1,2:2}]]
+    #alignments[1] = [[1, {0:0,1:1,2:2,3:3,4:4}],
+    #                 [2, {0:0,1:1,3:2,4:3}]]
 
+    print(strings)
+    for al in alignments.items():
+        print(al)
     M = MultiAlign(string_lengths, alignments)
     M.do_alignment()
+    for ma in M.multi_align:
+        print(ma)

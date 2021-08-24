@@ -2,7 +2,7 @@
 
 import csv
 import json
-from record_reader_classes import classificationRow, classificationRecordSet, taskActions
+from record_reader_classes import classificationRecordSet, taskActions
 from record_aligner_class import recordAligner
 from needleman_wunsch import needleman_wunsch
 from collections import OrderedDict
@@ -30,6 +30,10 @@ class annotationComparer:
         self.record_lengths = []
         self.annotation_texts = []
 
+    def get_by_index(self, index):
+
+        return self.annotations[self.annotation_key_index[index]]
+
     # Set up the workflow tasks to be extracted from each annotation
     def add_taskactions(self, workflow, field, action, tasks):
 
@@ -51,9 +55,11 @@ class annotationComparer:
         assert len(self.workflows) <= 1, "Can only compare records from the same workflow"  # this will raise an error which isn't caught
         assert len(self.subjects) <= 1, "Can only compare records of the same subject"
         annotation = classification_row.get_by_key('annotations')
-        RS = classificationRecordSet()
+        RS = classificationRecordSet(parent=self)
         RS.set_actions(self.task_actions[workflow_name]['annotations'].actions)
         RS.add_annotation(annotation)
+        if RS.has_dittos:
+            print("****************************HAS DITTOS************************")
         user_name = classification_row.get_by_key('user_name')
         classification_id = classification_row.get_by_key('classification_id')  # this is a unique identifier for the row
         self.annotations[classification_id] = RS
@@ -75,7 +81,9 @@ class annotationComparer:
 
         # sort the annotations in order of number of records
         self.sorted_texts = sorted(range(len(self.record_lengths)), key=lambda k: self.record_lengths[k], reverse=True)
-        #print("Texts:",len(self.annotation_texts),"Order:",self.sorted_texts)
+        self.sorted_texts = [i for i in range(len(self.record_lengths))]
+
+        print("Texts:",len(self.annotation_texts),"Order:",self.sorted_texts)
 
         #for s in self.sorted_texts:
         #    print("~~~~~~~~~~~~~~~~~~~~")
@@ -126,6 +134,7 @@ class annotationComparer:
             else:
                 return []
         mapping = []
+        #print("\tparameter:",path,"this_dict:", this_dict.keys())
         for k1, v in this_dict.items():
             for k2 in v.keys():
                 mapping.append([k1,k2])
@@ -133,29 +142,48 @@ class annotationComparer:
 
     # Intention was for this to be a generic function to be used at each stage in the recordset, record, field, word hierarchy
     # but it effectively just finds the mappings at the recordset level. Needs some thought to make it work as intended.
-    def get_multi_alignment(self, path = []):
+    def get_multi_alignment(self, path_list = [[]]):
 
-        mappings = self.get_alignment_mapping(path)
         record_alignments = {}  # This maps each annotation to its alignments between records which each other annotation
                                 # Example {0 : [[1, {0:0,1:1}], [2, {0:0,1:1}]]}
                                 # Annotation 0 aligns perfectly to both annotations 1 and 2 on records 0 and 1
-        for m in mappings:
-            record_mapping = self.get_alignment_mapping(path + m)
-            #print(m,"Record map:",record_mapping)
-            if m[0] not in record_alignments:
-                record_alignments[m[0]] = []
+        max_map_length = 0
+        for path in path_list:
+            mappings = self.get_alignment_mapping(path)
+            #max_map_length = max(max_map_length, len(mappings))
+            #print("\tpath:",path,"\tmappings:",mappings)
+            for m in mappings:
+                if len(path) == 0:
+                    record_mapping = self.get_alignment_mapping(path + m)
+                    r_id_1 = m[0]
+                    r_id_2 = m[1]
+                else:
+                    record_mapping = [m]
+                    r_id_1 = path[0]
+                    r_id_2 = path[1]
+                #print(m,"Record map:",record_mapping,"Ids:",r_id_1,r_id_2)
+                if r_id_1 not in record_alignments:
+                    record_alignments[r_id_1] = []
 
-            new_alignments = [m[1], {}]
-            for a,b in record_mapping:
-                if a not in new_alignments[1]: # deals with one to many mappings but not in a good way TODO
-                    new_alignments[1][a] = b
-            record_alignments[m[0]].append(new_alignments)
+                new_alignments = [r_id_2, {}]
+                for a,b in record_mapping:
+                    if a not in new_alignments[1]: # deals with one to many mappings but not in a good way TODO
+                        new_alignments[1][a] = b
+                record_alignments[r_id_1].append(new_alignments)
+                #print("\tAdded alignment:",r_id_1,"map:",new_alignments)
 
         # Turn pairwise alignments into multi alignment. In example above result will be:
         #[[0 0 0]
         # [1 1 1]]
-        M = MultiAlign([self.record_lengths[i] for i in self.sorted_texts],record_alignments)
+        #M = MultiAlign([self.record_lengths[i] for i in self.sorted_texts],record_alignments)
+        #M = MultiAlign([i for i in range(len(self.annotation_key_index))],record_alignments)
+        #M = MultiAlign(self.record_lengths, record_alignments)
+        M = MultiAlign([0 for i in range(len(self.annotation_key_index))], record_alignments)
+        print("**Alignments:",record_alignments)
         M.do_alignment()
+        #print("MA-1:",M.multi_align[-1])
+        M.multi_align.sort(key=lambda x: (min([i for i in x if i > -1]), max(x)))
+        #print("MA-1:",M.multi_align[-1],type(M.multi_align))
 
         return M
 
@@ -186,11 +214,12 @@ class annotationComparer:
                     if f[0] not in new_alignments[1]:
                         new_alignments[1][f[0]] = f[1]
                 field_alignments[self.sorted_texts[i]].append(new_alignments)
+                print("\tAdded alignment:",self.sorted_texts[i],"map:",new_alignments)
 
         #print("\tField lengths:",field_lengths,"Alignments:",field_alignments)
         M = MultiAlign(field_lengths,field_alignments)
         M.do_alignment()
 
-        return M.multi_align
+        return M #.multi_align
 
 

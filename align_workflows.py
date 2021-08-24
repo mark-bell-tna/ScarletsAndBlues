@@ -39,21 +39,61 @@ if __name__ == '__main__':
         row = DR.get_row_by_id(row_id)
         subject_name = row.get_by_key("subject_name")
         classification_id = row.get_by_key("classification_id")
+        print(row.items.keys())
         if subject_name != prev_subject:
             print("New subject:", subject_name)
             if prev_subject != "":
+                #print("index",C.annotation_key_index)
                 C.do_annotation_alignment()
                 print("Rec ids",C.get_alignment_mapping())
                 RMA = C.get_multi_alignment()
                 RMA.do_alignment()
                 print("Record and Field Alignments:")
+                #if len(RMA.multi_align) > 5:
+                #    continue
                 for a_row in RMA.multi_align:
-                    FMA = C.get_field_alignment(a_row)
-                    records = [(i,C.annotations[C.annotation_key_index[i]].get_by_index(r)) if r != -1 else (i,None) for i,r in enumerate(a_row)]
-                    print("RMA:",a_row, " **** ".join([r[1].get_delimited() for r in records if r[1] is not None]))
-                    for f in FMA:
-                        fields = [records[i][1].get_by_index(r) for i,r in enumerate(f) if records[i][1] is not None and r != -1]
-                        print("\t",f, " ~~~ ".join(fields)) #[x.get_delimited() for x in fields]))
+                    #FMA = C.get_field_alignment(a_row)
+                    if 0 in C.full_alignments and 1 in C.full_alignments:
+                       print("RMA:",a_row, len(C.annotations),type(C.annotations),C.annotations.keys(),C.full_alignments[0].keys(),C.full_alignments[1].keys())
+                       if a_row[0] == a_row[0]:  #a_row[0] == 0 and a_row[1] == 0:
+                           #print("\t",C.get_by_index(0).get_by_index(a_row[0]), C.get_by_index(1).get_by_index(a_row[1]))
+                           #FMA = C.get_field_alignment(a_row)
+                           #FMA.do_alignment()
+                           #for f in FMA.multi_align:
+                           #    print("\tFMA:",f)
+                           path_list = []
+                           for i in range(len(a_row)-1):
+                               for j in range(i+1,len(a_row)):
+                                   if a_row[i] == -1 or a_row[j] == -1:
+                                       continue
+                                   path_list.append([i,j,a_row[i],a_row[j]])
+                           FMA2 = C.get_multi_alignment(path_list)
+                           #FMA2.do_alignment()
+                           for f in FMA2.multi_align:
+                               print("\tFMA2:",f)
+                               path_list = []
+                               for i in range(len(f)-1):
+                                   #print("****",C.get_by_index(i).get_by_index(a_row[i]).get_by_index(f[i]))
+                                   for j in range(i+1,len(f)):
+                                       if f[i] == -1 or f[j] == -1:
+                                           continue
+                                       path_list.append([i,j,a_row[i],a_row[j],f[i],f[j]])
+                               #print("****",C.get_by_index(i+1).get_by_index(a_row[i+1]).get_by_index(f[i+1]))
+                               WMA = C.get_multi_alignment(path_list)
+                               for w in WMA.multi_align:
+                                   print("\t\tWMA:",w)
+                                   for i in range(len(w)):
+                                       #print("** ** **",C.get_by_index(i).get_by_index(a_row[i]).get_by_index(f[i]).get_by_index(w[i]).get_delimited())
+                                       print("** ** **",str(C.get_by_index(i).get_by_index([a_row[i],f[i],w[i]])))
+
+                           #if len(FMA.multi_align) > 2:
+                           #    exit()
+                    #print("\tFMA:",FMA)
+                           #records = [(i,C.get_by_index(i).get_by_index(r)) if r != -1 else (i,None) for i,r in enumerate(a_row)]
+                           #print("RMA:",a_row, " **** ".join([r[1].get_delimited() for r in records if r[1] is not None]))
+                           #for f in FMA2.multi_align:
+                           #    fields = [C.get_by_index(i).get_by_index([a_row[i],r]) for i,r in enumerate(f) if records[i][1] is not None and r != -1]
+                           #    print("\t",f, " ~~~ ".join([x.get_delimited() for x in fields]))
                 #    out = ""
                 #    C.do_field_alignment(a_row)
                 #    for j in range(len(a_row)):

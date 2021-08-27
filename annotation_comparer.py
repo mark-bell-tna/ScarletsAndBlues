@@ -130,14 +130,20 @@ class annotationComparer:
         this_dict = self.full_alignments
         for p in path:
             if p in this_dict:
-                this_dict = this_dict[p]
+                if isinstance(this_dict[p], dict):
+                    this_dict = this_dict[p]
+                else:
+                    break
             else:
                 return []
         mapping = []
         #print("\tparameter:",path,"this_dict:", this_dict.keys())
         for k1, v in this_dict.items():
-            for k2 in v.keys():
-                mapping.append([k1,k2])
+            if isinstance(v,dict):
+                for k2 in v.keys():
+                    mapping.append([k1,k2])
+            else:
+                mapping.append([k1,v])
         return mapping
 
     # Intention was for this to be a generic function to be used at each stage in the recordset, record, field, word hierarchy
@@ -179,7 +185,7 @@ class annotationComparer:
         #M = MultiAlign([i for i in range(len(self.annotation_key_index))],record_alignments)
         #M = MultiAlign(self.record_lengths, record_alignments)
         M = MultiAlign([0 for i in range(len(self.annotation_key_index))], record_alignments)
-        print("**Alignments:",record_alignments)
+        #print("**Alignments:",record_alignments)
         M.do_alignment()
         #print("MA-1:",M.multi_align[-1])
         M.multi_align.sort(key=lambda x: (min([i for i in x if i > -1]), max(x)))
@@ -222,4 +228,52 @@ class annotationComparer:
 
         return M #.multi_align
 
+
+    def alignments_iter(self, rec_ids, depth=2):
+
+        max_p_len = depth*2
+        p_queue = rec_ids
+
+        while len(p_queue) > 0:
+            this_rec = p_queue.pop(0)
+            path_list = this_rec
+            #parent = this_rec[1]
+            MA = self.get_multi_alignment(path_list)
+            for a_row in MA.multi_align:
+                #print("p:",path_list[0])
+                #a_queue.append([a_row, (int(len(path_list[0])/2)-1),counter,parent])
+                #print("\t" * (int(len(path_list[0])/2)-1),"row:",a_row)
+                new_path = []
+                printed = set()
+                output_paths = []
+                output_text = []
+                for i,p in enumerate(path_list):
+                    if a_row[p[0]] > -1 and a_row[p[1]] > -1 and len(p) <= max_p_len:
+                        new_path.append(p + [a_row[p[0]], a_row[p[1]]])
+                    if len(p) > max_p_len and a_row[p[0]] > -1 and a_row[p[1]] > -1:
+                        #print("P:",p,"Keys:", self.annotation_key_index)
+                        if p[0] not in printed:
+                            if p[0] > -1 and p[1] > -1:
+                                this_path = [x for i,x in enumerate(p[2:]) if i % 2 == 0] + [a_row[p[0]]]
+                                this_text = self.get_by_index(p[0]).get_by_index(this_path)
+                                #print("P0",p[0], "Text type",type(this_text),id(this_text),"Text",this_text,"P:",p,a_row[p[0]])
+                                printed.add(p[0])
+                                output_paths.append([p[0]] + this_path)
+                                output_text.append(this_text)
+                                #yield this_text
+                        if p[1] not in printed:
+                            if p[0] > -1 and p[1] > -1:
+                                this_path = [x for i,x in enumerate(p[2:]) if i % 2 == 1] + [a_row[p[1]]]
+                                this_text = self.get_by_index(p[1]).get_by_index(this_path)
+                                #print("P1",p[1], "Text type",type(this_text),id(this_text),"Text",this_text,"P:",p,a_row[p[1]])
+                                printed.add(p[1])
+                                output_paths.append([p[1]] + this_path)
+                                output_text.append(this_text)
+                                #yield this_text
+                yield [output_paths, output_text]
+
+                #p_queue.append([new_path, counter])
+                if len(new_path) > 0:
+                    for al in self.alignments_iter([new_path], depth):
+                        yield al
 

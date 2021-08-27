@@ -28,13 +28,41 @@ from needleman_wunsch import needleman_wunsch
 # 
 ###################################################################################################
 
-class classificationObject:
+import re
+
+class Ditto:
 
     def __init__(self):
 
+        self.value = '-do-'
+
+    def is_ditto(self, text):
+        assert not re.search(r'[-_]+d[do][-_]+d+[do][-_]+', text), "Double -do- style ditto"
+        assert not re.search(r'""', text), 'Double " style ditto' #Maybe should treat this as finger-stutter and collapse to one ditto
+        return re.fullmatch(r'(?:^|\s)("|[-_~]+d+[do][-_~]+)(?:\s|$)', text) is not None
+
+    def update(self, value):
+
+        self.value = value
+
+    def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
+        return str(self.value)
+
+class classificationObject:
+
+    delimiter = chr(32)
+
+    def __init__(self, parent = None, predecessor = None):
+
         self.items = OrderedDict()  # Maintains entry order when iterated over
-        self.key_index = []         # Despite maintaining order, OrderedDict does not have a method for looking up the Nth item
-        self.delimiter = chr(32)    # Used by get_delimited method, this should be overridden by each subclass so each has a unique delimiter
+        self.key_index = []         # Despite maintaining order, OrderedDict does not have a method for looking up the ith item
+        #self.delimiter = chr(32)    # Used by get_delimited method, this should be overridden by each subclass so each has a unique delimiter
+        self.parent = parent
+        self.predecessor = predecessor
+        self.has_dittos = False
 
     def add(self, value, key = None):  # Add a new entry to the object
 
@@ -46,13 +74,35 @@ class classificationObject:
         self.items[key] = value
         self.key_index.append(key)
 
+    def get_last_added(self):
+        if len(self.key_index) == 0:
+            return None
+        return self.get_by_index(len(self.key_index)-1)
+
     def get_by_key(self, key):  # Lookup a known key
 
         return self.items[key]
 
     def get_by_index(self, index):  # Lookup the Nth item
 
-        return self.items[self.key_index[index]]
+        if isinstance(index, list):
+            if len(index) == 1:
+                if index[0] == -1:
+                    return ""
+                if index[0] not in self.key_index:
+                    return self.items
+                return self.items[self.key_index[index[0]]]
+            else:
+                if isinstance(self.items[self.key_index[index[0]]], classificationObject):
+                    return self.items[self.key_index[index[0]]].get_by_index(index[1:])
+                else:
+                    print(self.items[self.key_index[index[0]]],"not CO")
+        else:
+            if index == -1:
+                return ""
+            if index not in self.key_index:
+                return self.items
+            return self.items[self.key_index[index]]
 
     def __str__(self):
         return str(self.items)
@@ -86,9 +136,9 @@ class classificationRow(classificationObject):
                       'workflow_version', 'created_at', 'gold_standard', 'expert', 'metadata', 'annotations',
                       'subject_data', 'subject_ids', 'subject_name']
 
-    def __init__(self):
+    #def __init__(self):
 
-        super().__init__()
+    #    super().__init__()
 
     def add_row(self, row):  # Expecting an already split row in a list
 
@@ -116,10 +166,12 @@ class classificationRow(classificationObject):
 # For example a list of names in the People workflow
 class classificationRecordSet(classificationObject):
 
-    def __init__(self):
+    delimiter = chr(30)
 
-        super().__init__()
-        self.delimiter = chr(30) # This will be the delimiter between records with a RecordSet
+    #def __init__(self, parent=None, predecessor=None):
+
+    #    super().__init__(parent, predecessor)
+    #    self.delimiter = chr(30) # This will be the delimiter between records with a RecordSet
 
     def set_actions(self, actions): # Actions are used to group tasks to make a record (i.e. fields within a record - surname etc.)
         
@@ -134,6 +186,7 @@ class classificationRecordSet(classificationObject):
         # Each Record is then added to the RecordSet
         ann_queue = []  # use a queue because of nested tasks in lists (see below)
         record_id = 0
+        prev_record = None
         for ann in annotation: # each annotation is a dictionary containing a task and a value
             ann_queue.append(ann)
             while len(ann_queue) > 0:
@@ -150,26 +203,104 @@ class classificationRecordSet(classificationObject):
                     if 'close' in actions or 'create' in actions:
                         if R is not None:
                             self.add(R) # Add current record to the recordset
+                            print("Record is:", R.get_field_names())
+                            prev_record = self.get_last_added()
                     if 'create' in actions:
-                        R = classificationRecord()  # Create a new record
+                        R = classificationRecord(self, prev_record)  # Create a new record
                     if 'add' in actions:
                         if R is None:
-                            R = classificationRecord()
+                            R = classificationRecord(self, prev_record)
                             # There is a data error in the current version of the export which means that
                             # the first task of a group is not always coming through.
                             # Ideally this would be the 'create' task and would also provide a label
                             # for the type of record.
                             print("********** Warning: expected create action missing:",this_ann['task'])
-                        R.add(this_ann['value'],this_ann['task'])  # Add field value to the current record
+                        R.add(this_ann['value'], this_ann['task'])  # Add field value to the current record
+                        if R.has_dittos:
+                            self.has_dittos = True
 
 # A classificationRecord object represents a single entry in a RecordSet (e.g. a row in a list of people)
 # Each item added will represent a field in the Record
 class classificationRecord(classificationObject):
 
-    def __init__(self):
+    delimiter = chr(31)
 
-        super().__init__()
-        self.delimiter = chr(31)
+    #def __init__(self, parent=None, predecessor=None):
+
+    #    super().__init__(parent, predecessor)
+    #    self.delimiter = chr(31)
+
+    def add(self, value, key=None):
+
+        predecessor = self.get_last_added()
+        field = classificationField(self, predecessor)
+        field.add(value)
+        if field.has_dittos:
+            self.has_dittos = True
+        super().add(field, key)
+
+    def get_field_tasks(self):
+
+        return [k for k in self.items.keys()]
+
+class classificationField(classificationObject):
+
+
+    def add(self, value, key=None):
+
+        tokens = value.split(self.delimiter)
+        prev_token = None
+        for tk in tokens:
+            CW = classificationWord(tk, self, prev_token)
+            if CW.has_dittos:
+                self.has_dittos = True
+            super().add(CW)
+            if CW.has_dittos:
+                if self.parent is not None:
+                    if self.parent.predecessor is not None:
+                        parent_index = len(self.parent.items)
+                        this_index = len(self.items)-1
+                        #print("idx",parent_index,this_index,"parent",self.parent.get_delimited(),"pred",self.parent.predecessor.get_delimited())
+                        predecessor_field = self.parent.predecessor.get_by_index(parent_index)
+                        key = CW.key_index[0]
+                        if isinstance(predecessor_field,classificationObject):
+                            self.items = predecessor_field.items
+                            self.key_index = predecessor_field.key_index
+                            #print(self.get_delimited(),"updated", self.parent.get_delimited())
+
+            prev_token = CW
+
+class classificationWord(classificationObject):
+
+    delimiter = chr(0)
+    ditto_test = Ditto()
+
+    def __init__(self, token=None, parent=None, predecessor=None):
+
+        super().__init__(parent, predecessor)
+        #self.delimiter = chr(0)
+
+        if token is not None:
+            self.add(token)
+        
+    def add(self, value, key=None):
+
+        #if self.ditto_test.is_ditto(value):
+        #    super().add(Ditto())
+        #    self.has_dittos = True
+        #    return
+
+        for c in value.split(self.delimiter):
+            super().add(c)
+            #tokens = list(c)
+            #for t in tokens:
+            #    CT = classificationToken()
+            #    CT.add(t)
+            #    super().add(CT)
+
+class classificationToken(classificationObject):
+
+    delimiter = chr(0)
 
 
 # taskActions are used to identify recordssets, records and fields through the tasks in a workflow
@@ -194,7 +325,9 @@ class taskActions:
 
 if __name__ == "__main__":
 
-    R = classificationRow(['A','B','C','["A","B"]'])
-
-    print(R.get_field('user_name'))
-    print(R.get_field('user_ip'))
+    D = Ditto()
+    print(D.is_ditto("vair"),"vair")
+    print(D.is_ditto('"'),'"')
+    print(D.is_ditto("~do~"),"~do~")
+    print(D.is_ditto("-ddd-"), "-ddd-")
+    print(D.is_ditto("-DDD-"), "-DDD-")

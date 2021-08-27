@@ -134,10 +134,10 @@ class MultiAlign:
         for ma in self.multi_align:
             self.max_indices = [max(self.max_indices[i], ma[i]+1) for i in range(len(ma))]
 
-        if len(self.multi_align) < 6:
-            print("Pre-complete:",self.multi_align)
-            print("Max indices:",self.max_indices)
-            print("Record lengths:",self.record_lengths)
+        #if len(self.multi_align) < 6:
+        #    print("Pre-complete:",self.multi_align)
+        #    print("Max indices:",self.max_indices)
+        #    print("Record lengths:",self.record_lengths)
         for i in range(len(self.max_indices)):
             while self.max_indices[i] < self.record_lengths[i]:
                 self.multi_align.append([self.max_indices[i] if j == i else -1 for j in range(len(self.max_indices))])

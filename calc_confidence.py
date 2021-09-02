@@ -24,7 +24,6 @@ class probabilityTree:
 
     def get_probability(self, A, B):
 
-        #print(self.function, A, B)
         comparison = self.function.compare(A, B)
         if comparison in self.tree:
             value = self.tree[comparison]
@@ -42,6 +41,23 @@ class equalsComparator(comparator):  # Kind of unnecessary but it has a Ronseal 
     def __init__(self):
 
         super().__init__()
+
+class lookupComparator(comparator):
+
+    def __init__(self, lookup_set):
+
+        self.lookup = lookup_set
+
+    def compare(self, A, B):
+
+        return_string = ""
+        if A == B:
+            return "A"
+        if A in self.lookup:
+            return_string += "A"
+        if B in self.lookup:
+            return_string += "B"
+        return return_string
 
 class missingComparator(comparator):
 
@@ -100,7 +116,6 @@ class confidenceCalculator:
                 probability_sum += (1-probability) ** self.values[keys[j]]
             all_probabilities.append([keys[i],total_probability])
             probability_sum += total_probability
-            print(keys[i],i,probability_sum,total_probability)
 
         self.calculated_probabilities = sorted([p for p in all_probabilities], key=itemgetter(1), reverse=True)
         for cp in self.calculated_probabilities:
@@ -124,7 +139,8 @@ if __name__ == '__main__':
 
     PT1 = probabilityTree(similarityComparator(), {1:0.6, 2:0.3, '*': 0.1})
     PT2 = probabilityTree(equalsComparator(), {1:0.9, 0: PT1})
-    PT3 = probabilityTree(missingComparator(), {1:0.7, -1:0.7, 0: PT2})
+    PT3 = probabilityTree(missingComparator(), {1:0.7, -1:0.1, 0: PT2})
+    PT4 = probabilityTree(lookupComparator(set(["Woman Clerk", "Surgeon", "Manager"])), {"AB":0.2, "A":0.9, "B":0.01, "*": PT3})
 
     print("Ex1:", PT3.get_probability("jones","jones"))
     print("Ex2:", PT3.get_probability("jones","jonesy"))
@@ -136,5 +152,16 @@ if __name__ == '__main__':
     CC.add_value("jones")
     CC.add_value("jones")
     
+    for c in CC.conf_iter():
+        print(c)
+
+
+    CC = confidenceCalculator(PT4)
+    CC.add_value("Woman Clerk")
+    CC.add_value("Woman Clerk")
+    CC.add_value("Surgeon")
+
+    print("")
+    print("*************")
     for c in CC.conf_iter():
         print(c)

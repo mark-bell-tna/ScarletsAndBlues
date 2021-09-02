@@ -75,6 +75,7 @@ class confidenceCalculator:
         self.values = {}
         self.probability_tree = probability_tree
         self.value_count = 0
+        self.calculated = False
 
     def add_value(self, value):
 
@@ -85,6 +86,7 @@ class confidenceCalculator:
 
         keys = [k for k in self.values.keys()]
         all_probabilities = []
+        probability_sum = 0
 
         for i in range(len(keys)):
             total_probability = 1
@@ -94,15 +96,26 @@ class confidenceCalculator:
                 probability = self.probability_tree.get_probability(keys[i], keys[j])
                 total_probability *= probability ** self.values[keys[j]]
 
-            all_probabilities.append(total_probability)
             if len(keys) == 1:
-                all_probabilities.append((1-probability) ** self.values[keys[j]])
+                probability_sum += (1-probability) ** self.values[keys[j]]
+            all_probabilities.append([keys[i],total_probability])
+            probability_sum += total_probability
+            print(keys[i],i,probability_sum,total_probability)
 
-        sorted_probabilities = sorted([(i,p) for i,p in enumerate(all_probabilities)], key=itemgetter(1), reverse=True)
-        top_probability = sorted_probabilities[0][1]
-        others_total = sum([p[1] for p in sorted_probabilities[1:]])
+        self.calculated_probabilities = sorted([p for p in all_probabilities], key=itemgetter(1), reverse=True)
+        for cp in self.calculated_probabilities:
+            cp.append(int(log10(cp[1]/(probability_sum-cp[1]))*10))
 
-        return(int(log10(top_probability/others_total)*10))
+        self.calculated = True
+
+
+    def conf_iter(self):
+
+        if not self.calculated:
+            self.calc()
+
+        for cp in self.calculated_probabilities:
+            yield cp
 
 
 
@@ -122,4 +135,6 @@ if __name__ == '__main__':
     CC.add_value("jones")
     CC.add_value("jones")
     CC.add_value("jones")
-    print(CC.calc())
+    
+    for c in CC.conf_iter():
+        print(c)

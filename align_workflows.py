@@ -67,7 +67,7 @@ if __name__ == '__main__':
                         continue
                     for a in al[1]:
                         CC.add_value(a.get_delimited())
-                    print([C.annotation_key_index[x[0]] for x in al[0]],"\t",al[0],"\t",[x.get_delimited() for x in al[1]],"\t", CC.calc())
+                    print([C.annotation_key_index[x[0]] for x in al[0]],"\t",al[0],"\t",[x.get_delimited() for x in al[1]],"\t", next(CC.conf_iter()))
                 #p_queue = [[rec_ids,-1]]
                 #a_queue = []
 

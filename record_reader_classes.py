@@ -203,7 +203,7 @@ class classificationRecordSet(classificationObject):
                     if 'close' in actions or 'create' in actions:
                         if R is not None:
                             self.add(R) # Add current record to the recordset
-                            print("Record is:", R.get_field_names())
+                            #print("Record is:", R.get_field_tasks())
                             prev_record = self.get_last_added()
                     if 'create' in actions:
                         R = classificationRecord(self, prev_record)  # Create a new record
@@ -285,13 +285,18 @@ class classificationWord(classificationObject):
         
     def add(self, value, key=None):
 
-        #if self.ditto_test.is_ditto(value):
-        #    super().add(Ditto())
-        #    self.has_dittos = True
-        #    return
+        if self.ditto_test.is_ditto(value):
+            super().add(Ditto())
+            self.has_dittos = True
+            return
 
         for c in value.split(self.delimiter):
             super().add(c)
+
+            # If you were to implement objects down to Token level this is how it would work
+            # There are advantages to this for individual character comparisons
+            # However, before doing that the alignment code would need to change has it has
+            # character positions at the field level rather than word
             #tokens = list(c)
             #for t in tokens:
             #    CT = classificationToken()

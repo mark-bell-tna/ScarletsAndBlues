@@ -14,10 +14,14 @@ class recordAligner:
         #NW = needleman_wunsch(recordA, recordB)
         LA = local_align(recordA, recordB)
         NW = all_alignment(LA, recordA, recordB)
-        #print("A:",recordA[0:50])
-#        #print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        #print("B:",recordB[0:50])
-        print("NW:",NW[0:50])
+        max_len = 100
+        #print("A:",recordA[0:max_len])
+#       ##print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        #print("B:",recordB[0:max_len])
+        #print("NW:",[recordA[X[0]] if X[0] is not None else "-" for X in NW[0:max_len] ])
+        #print("NW:",[recordB[X[1]] if X[1] is not None else "-" for X in NW[0:max_len] ])
+        
+        #exit()
 
         self.alignments = {}
         p1 = 0
@@ -30,8 +34,16 @@ class recordAligner:
         d1 = True
         d2 = True
 
-        while p1 < l1 and p2 < l2:
-            c1 = NW[n_pos][0]
+        while p1 < l1 and p2 < l2 and n_pos < len(NW):
+            try:
+                c1 = NW[n_pos][0]
+            except:
+                print("Error in record aligner:")
+                print(n_pos, p1, l1, p2, l2)
+                print(NW)
+                print(recordA)
+                print(recordB)
+                exit()
             ord1 = None
             ord2 = None
             if c1 is not None:

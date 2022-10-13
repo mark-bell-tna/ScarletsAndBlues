@@ -15,7 +15,7 @@ def Ins(x):
 def Sub(x,y): # Could expand this to return different scores depending on x and y (i.e. if x regularly mistaken for y)
 
     if x == y:
-        return 1
+        return 2
     #elif ord(x) in [30,31] or ord(y) in [30,31]:
     #    return 0
     else:
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     print("X len:",len(X))
     print("Y len:",len(Y))
     A = local_align(X,Y)
-    print(A)
+    #print(A)
 
     AL = all_alignment(A,X,Y)
     x = ""

@@ -4,10 +4,11 @@ import csv
 import json
 from record_reader_classes import classificationRecordSet, taskActions
 from record_aligner_class import recordAligner
-from needleman_wunsch import needleman_wunsch
+#from needleman_wunsch import needleman_wunsch
 from collections import OrderedDict
 from multi_align import MultiAlign
 from utils import add_to_dict_num, add_to_dict_list
+from sandb_data_reader import sandbDataReader
 
 gap_char = "~"
 
@@ -57,7 +58,10 @@ class annotationComparer:
         annotation = classification_row.get_by_key('annotations')
         RS = classificationRecordSet(parent=self)
         RS.set_actions(self.task_actions[workflow_name]['annotations'].actions)
-        RS.add_annotation(annotation)
+        #print(annotation)
+        #exit()
+        if not RS.add_annotation(annotation):
+            return
         if RS.has_dittos:
             print("****************************HAS DITTOS************************")
         user_name = classification_row.get_by_key('user_name')
@@ -83,7 +87,7 @@ class annotationComparer:
         self.sorted_texts = sorted(range(len(self.record_lengths)), key=lambda k: self.record_lengths[k], reverse=True)
         self.sorted_texts = [i for i in range(len(self.record_lengths))]
 
-        print("Texts:",len(self.annotation_texts),"Order:",self.sorted_texts)
+        #print("Texts:",len(self.annotation_texts),"Order:",self.sorted_texts)
 
         #for s in self.sorted_texts:
         #    print("~~~~~~~~~~~~~~~~~~~~")
@@ -91,7 +95,7 @@ class annotationComparer:
         #print("************************************************************************")
 
         #record_alignments = {}
-        self.full_alignments = {}  # container for nested recordset, record, field, word and character alignments
+        self.full_alignments = OrderedDict()  # container for nested recordset, record, field, word and character alignments
                                    # The expectation is that a record will generally map to one other,
                                    # a field to one other field, and so on
                                    # So traversing through this dictionary will be efficient
@@ -109,7 +113,7 @@ class annotationComparer:
         for i in range(len(self.sorted_texts)-1):
             id_i = self.sorted_texts[i]   # index of annotation with ith longest entry
             if id_i not in self.full_alignments:
-                self.full_alignments[id_i] = {}
+                self.full_alignments[id_i] = OrderedDict()
             this_alignment =  self.full_alignments[id_i]
             for j in range(i+1,len(self.sorted_texts)):
                 id_j = self.sorted_texts[j]
@@ -188,7 +192,10 @@ class annotationComparer:
         #print("**Alignments:",record_alignments)
         M.do_alignment()
         #print("MA-1:",M.multi_align[-1])
-        M.multi_align.sort(key=lambda x: (min([i for i in x if i > -1]), max(x)))
+        #print("Pre-sort:",M.multi_align)
+        
+        # Sort by highest value in each row (excluding -1 because this used to use min)
+        M.multi_align.sort(key=lambda x: (max([i for i in x if i > -1]), max(x)))
         #print("MA-1:",M.multi_align[-1],type(M.multi_align))
 
         return M
@@ -277,3 +284,31 @@ class annotationComparer:
                     for al in self.alignments_iter([new_path], depth):
                         yield al
 
+
+
+if __name__ == '__main__':
+    
+    workflow = "People"
+
+    #data_file_name = "scarlets-and-blues-classifications.csv"
+    data_files = {"Meetings": "meetings-classifications.csv",
+                  "People": "../Data/people-classifications.csv"}
+
+    data_file_name = data_files[workflow]
+
+    DR = sandbDataReader()
+    DR.load_data(data_file_name)
+    
+    #print(DR.get_row_by_classification(345776257).get_delimited())
+    
+    AC = annotationComparer()
+    
+    AC.add_taskactions('People',   'annotations', 'create',['T20','T7'])  #, 'close':'T7', 'add':['T1','T2','T10','T11']})
+    AC.add_taskactions('People',   'annotations', 'close','T7')  #, 'close':'T7', 'add':['T1','T2','T10','T11']})
+    AC.add_taskactions('People',   'annotations', 'add',['T1','T2','T10','T11'])
+    
+    for c_ind in [377784204]:
+        AC.add_row(DR.get_row_by_classification(c_ind))
+        print(c_ind, AC.get_by_index(0).get_delimited())
+        print()
+        AC.clear()

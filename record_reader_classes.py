@@ -2,7 +2,7 @@
 
 import json
 from collections import OrderedDict
-from needleman_wunsch import needleman_wunsch
+#from needleman_wunsch import needleman_wunsch
 
 ###################################################################################################
 # A set of container classes for Scarlets and Blues data
@@ -29,6 +29,7 @@ from needleman_wunsch import needleman_wunsch
 ###################################################################################################
 
 import re
+from nvm import pmemobj
 
 class Ditto:
 
@@ -51,7 +52,7 @@ class Ditto:
     def __repr__(self):
         return str(self.value)
 
-class classificationObject:
+class classificationObject: #(pmemobj.PersistentObject):
 
     delimiter = chr(32)
 
@@ -132,9 +133,14 @@ class classificationRow(classificationObject):
     #__field_lookup = {'classification_id':0, 'user_name':1, 'user_id':2, 'user_ip':3, 'workflow_id':4, 'workflow_name':5,
     #                  'workflow_version':6, 'created_at':7, 'gold_standard':8, 'expert':9, 'metadata':10, 'annotations':11,
     #                  'subject_data':12, 'subject_ids':13, 'subject_name':14}
-    __field_list = ['classification_id', 'user_name', 'user_id', 'user_ip', 'workflow_id', 'workflow_name',
-                      'workflow_version', 'created_at', 'gold_standard', 'expert', 'metadata', 'annotations',
-                      'subject_data', 'subject_ids', 'subject_name']
+    #__field_list = ['classification_id', 'user_name', 'user_id', 'user_ip', 'workflow_id', 'workflow_name',
+    #                  'workflow_version', 'created_at', 'gold_standard', 'expert', 'metadata', 'annotations',
+    #                  'subject_data', 'subject_ids', 'subject_name']
+
+    __field_list = ['classification_id', 'workflow_id', 'workflow_name',
+                      'workflow_version', 'created_at', 'gold_standard', 'expert', 'annotations',
+                      'subject_data', 'subject_ids', 'user_name']
+
 
     #def __init__(self):
 
@@ -154,11 +160,17 @@ class classificationRow(classificationObject):
 
         # Ideally the subject_id would be used but this changes when images are reloaded
         # so name is more consistent, although the case varies for how Name is named.
+        
+        subject = ""
+
         if 'name' in subject_data[str(subject_id)]:
             subject = subject_data[str(subject_id)]['name']
         if 'Name' in subject_data[str(subject_id)]:
             subject = subject_data[str(subject_id)]['Name']
+        if 'image' in subject_data[str(subject_id)]:
+            subject = subject_data[str(subject_id)]['image']
         subject = subject.replace(" ","/")
+        #print("Subject:", subject, "Id:", subject_id)
         self.add(subject, 'subject_name')
 
 
@@ -198,6 +210,9 @@ class classificationRecordSet(classificationObject):
                         if 'task' in v:  # Things in lists are not always tasks
                             ann_queue.append(v)
 
+                if this_ann['task'] == 'T20' and this_ann['value'] == 'No':
+                    print("No names found")
+                    return False
                 if this_ann['task'] in self.actions:  # only interested in certain tasks
                     actions = self.actions[this_ann['task']]
                     if 'close' in actions or 'create' in actions:
@@ -214,10 +229,12 @@ class classificationRecordSet(classificationObject):
                             # the first task of a group is not always coming through.
                             # Ideally this would be the 'create' task and would also provide a label
                             # for the type of record.
-                            print("********** Warning: expected create action missing:",this_ann['task'])
+                            #print("********** Warning: expected create action missing:",this_ann['task'])
                         R.add(this_ann['value'], this_ann['task'])  # Add field value to the current record
                         if R.has_dittos:
                             self.has_dittos = True
+
+        return True
 
 # A classificationRecord object represents a single entry in a RecordSet (e.g. a row in a list of people)
 # Each item added will represent a field in the Record
@@ -326,6 +343,10 @@ class taskActions:
             if w not in self.actions:
                 self.actions[w] = []
             self.actions[w].append(action_name)
+            
+    def __repr__(self):
+        
+        return str(self.actions)
 
 
 if __name__ == "__main__":

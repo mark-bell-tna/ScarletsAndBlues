@@ -26,7 +26,7 @@ class MultiAlign:
 
     def add_row(self, row):
         
-        print("Add row:",row)
+        #print("Add row:",row)
         for i in range(len(row)):
             if row[i] > self.max_indices[i]:
                 self.max_indices[i] = row[i]
@@ -38,10 +38,12 @@ class MultiAlign:
         alignment_keys = [k for k in self.record_alignments.keys()]
         #print("MA len:", len(self.multi_align))
         #print("Record lengths:",self.record_lengths)
-        #print("MultiKeys:",alignment_keys)
+        #print("AlignmentKeys:",alignment_keys)
         #print("Alignments:", self.record_alignments)
 
         # The 'spine' is the multi_align variable. These two variables keep track of its length and current position
+        if len(self.record_lengths) == 0:
+            return
         spine_len = self.record_lengths[0]
         spine_idx = 0
     
@@ -51,21 +53,22 @@ class MultiAlign:
 
         # Set up multi_align record (spine) using the longest record available
         # If longest record is record i, then ith entry in nth row will be n, other entries will be -1
-        for i in range(spine_len):
-            map_row = [-1 for s in self.record_lengths]
-            map_row[alignment_keys[0]] = i
-            #print("Start MA:",i,":",map_row)
-            self.multi_align.append(map_row)
+        # TODO: record lengths are all zero, so check if this part can be removed
+        #for i in range(spine_len):
+        #    map_row = [-1 for s in self.record_lengths]
+        #    map_row[alignment_keys[0]] = i
+        #    #print("Start MA:",i,":",map_row)
+        #    self.multi_align.append(map_row)
+        #print("MA start:", self.multi_align)
         #if len(self.multi_align) > 0:
         #    print("Last:",self.multi_align[-1])
 
         #print("MA len:", len(self.multi_align))
         # Iterating through each pair of alignments (e.g. recordset i to recordset j)
         for primary_col in alignment_keys:  # column index of primary record
-            #print("Rec:",primary_col)
             column_indices = [0 for s in self.record_lengths]
+
             for align in self.record_alignments[primary_col]:
-                #print("Match",align)
                 secondary_col = align[0]  # column index of secondary (aligned with primary) record
                 align_map = [(k,v) for k,v in align[1].items()]  # aligned items within each record
                 spine_idx = 0
@@ -74,12 +77,13 @@ class MultiAlign:
                     match_found = False
                     while not match_found: # scroll down multi_align list until value in primary or secondary columns
                                            # matches one of values in this_map tuple
-                        #print("Idx",spine_idx,"ma len",len(self.multi_align),"map",this_map)
+                        #print("Idx",spine_idx,"P:", primary_col, "S:", secondary_col,"ma len",len(self.multi_align),"map",this_map)
                         if spine_idx == len(self.multi_align):  # we've hit the bottom so append a new row
                             map_row = [-1 for s in self.record_lengths]
                             map_row[primary_col]= this_map[0]
                             map_row[secondary_col] = this_map[1]
                             self.multi_align.append(map_row)
+                            #print("\tAppended:", len(self.multi_align), map_row)
                             match_found = True   # new row constructed from this mapping makes it a match
                             #print("*****Added:", map_row)
                         else:
@@ -130,6 +134,7 @@ class MultiAlign:
                     column_indices[secondary_col] += 1 # = max(column_indices[secondary_col],this_map[1])+1
                     #print("\tUpdated Row:",self.multi_align[spine_idx])
                     spine_idx += 1
+                    #print(self.multi_align)
 
         for ma in self.multi_align:
             self.max_indices = [max(self.max_indices[i], ma[i]+1) for i in range(len(ma))]
